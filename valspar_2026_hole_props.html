@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VALSPAR 2026 — HOLE PROP ANALYZER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d0f;
+    --surface: #111518;
+    --surface2: #181d21;
+    --border: #252b30;
+    --border-light: #2e3740;
+    --text: #e8edf2;
+    --text-dim: #7a8a96;
+    --text-muted: #3e4e5a;
+    --accent: #00e5a0;
+    --accent-dim: rgba(0,229,160,0.12);
+    --accent-glow: rgba(0,229,160,0.3);
+    --red: #ff4d6a;
+    --red-dim: rgba(255,77,106,0.12);
+    --gold: #f5c842;
+    --gold-dim: rgba(245,200,66,0.12);
+    --blue: #4da6ff;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 14px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,13,15,0.95);
+    backdrop-filter: blur(8px);
+  }
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .header-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text);
+  }
+  .header-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .bankroll-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bankroll-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+  .bankroll-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 8px;
+    width: 110px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .bankroll-input:focus { border-color: var(--accent); }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    background: var(--surface);
+  }
+  .tab {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 10px 16px;
+    cursor: pointer;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* MAIN LAYOUT */
+  .main { display: flex; height: calc(100vh - 89px); overflow: hidden; }
+  .panel-view { display: none; width: 100%; overflow-y: auto; }
+  .panel-view.active { display: flex; }
+
+  /* HOLE GRID VIEW */
+  #view-holes { flex-direction: column; padding: 20px 24px; gap: 20px; }
+
+  .hole-grid {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 6px;
+  }
+  .hole-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .hole-card:hover { border-color: var(--accent); background: var(--surface2); }
+  .hole-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+  .hole-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: transparent;
+    transition: background 0.2s;
+  }
+  .hole-card.par3::before { background: var(--blue); }
+  .hole-card.par4::before { background: var(--gold); }
+  .hole-card.par5::before { background: var(--accent); }
+  .hole-num {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .hole-par-yds {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+  }
+  .hole-avg {
+    font-family: var(--mono);
+    font-size: 10px;
+    margin-top: 6px;
+    font-weight: 700;
+  }
+  .hole-avg.under { color: var(--accent); }
+  .hole-avg.over { color: var(--red); }
+  .hole-avg.even { color: var(--gold); }
+  .hole-bets-badge {
+    position: absolute;
+    top: 6px; right: 6px;
+    background: var(--accent);
+    color: #000;
+    font-family: var(--mono);
+    font-size: 8px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 2px;
+    display: none;
+  }
+
+  /* ANALYSIS PANEL */
+  .analysis-panel {
+    width: 100%;
+    padding: 0 24px 24px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  .analysis-left { flex: 0 0 420px; display: flex; flex-direction: column; gap: 16px; }
+  .analysis-right { flex: 1; display: flex; flex-direction: column; gap: 16px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface2);
+  }
+  .card-title {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .card-body { padding: 14px; }
+
+  /* Hole selector in analysis */
+  .hole-info-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 14px;
+  }
+  .hole-big-num {
+    font-family: var(--mono);
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .hole-details { display: flex; flex-direction: column; gap: 4px; }
+  .hole-detail-row {
+    display: flex;
+    gap: 16px;
+  }
+  .hole-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .hole-stat-label {
+    font-family: var(--mono);
+    font-size: 8px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .hole-stat-val {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  /* Pin selector */
+  .pin-select-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 14px;
+  }
+  .pin-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .pin-btn:hover { border-color: var(--accent); color: var(--text); }
+  .pin-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+  /* Sample size */
+  .sample-info {
+    padding: 6px 14px 10px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+  }
+
+  /* Historical stats table */
+  .stats-table { width: 100%; border-collapse: collapse; }
+  .stats-table th {
+    font-family: var(--mono);
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: right;
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stats-table th:first-child { text-align: left; }
+  .stats-table td {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-align: right;
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(37,43,48,0.5);
+    color: var(--text-dim);
+  }
+  .stats-table td:first-child {
+    text-align: left;
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .stats-table tr:last-child td { border-bottom: none; }
+  .hist-pct { color: var(--text); font-weight: 700; }
+  .hist-odds { color: var(--text-dim); }
+
+  /* DK Odds input table */
+  .odds-table { width: 100%; border-collapse: collapse; }
+  .odds-table th {
+    font-family: var(--mono);
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .odds-table th:first-child { text-align: left; }
+  .odds-table td {
+    padding: 5px 6px;
+    border-bottom: 1px solid rgba(37,43,48,0.4);
+    vertical-align: middle;
+  }
+  .odds-table tr:last-child td { border-bottom: none; }
+  .market-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text);
+    padding-left: 4px;
+    white-space: nowrap;
+  }
+  .odds-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--gold);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    padding: 4px 6px;
+    width: 80px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .odds-input:focus { border-color: var(--gold); }
+  .odds-input.has-value { border-color: var(--border-light); }
+
+  .edge-cell {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    min-width: 60px;
+  }
+  .edge-cell.positive { color: var(--accent); }
+  .edge-cell.negative { color: var(--red); }
+  .edge-cell.neutral { color: var(--text-muted); }
+
+  .kelly-cell {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-align: center;
+    color: var(--text-dim);
+    min-width: 60px;
+  }
+  .kelly-cell.active { color: var(--accent); font-weight: 700; }
+
+  .bet-size-cell {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-align: right;
+    color: var(--text-dim);
+    padding-right: 8px;
+    white-space: nowrap;
+  }
+  .bet-size-cell.active { color: var(--gold); font-weight: 700; }
+
+  /* SCANNER VIEW */
+  #view-scanner {
+    flex-direction: column;
+    padding: 20px 24px;
+  }
+  .scanner-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .scanner-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+  }
+  .scanner-filters {
+    display: flex;
+    gap: 8px;
+  }
+  .filter-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: all 0.15s;
+  }
+  .filter-btn.active, .filter-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .scanner-table { width: 100%; border-collapse: collapse; }
+  .scanner-table th {
+    font-family: var(--mono);
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    cursor: pointer;
+    user-select: none;
+  }
+  .scanner-table th:hover { color: var(--text-dim); }
+  .scanner-table th.sort-active { color: var(--accent); }
+  .scanner-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(37,43,48,0.5);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    vertical-align: middle;
+  }
+  .scanner-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .scanner-table tr:last-child td { border-bottom: none; }
+
+  .hole-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .hole-badge.par3 { border-color: var(--blue); color: var(--blue); }
+  .hole-badge.par4 { border-color: var(--gold); color: var(--gold); }
+  .hole-badge.par5 { border-color: var(--accent); color: var(--accent); }
+
+  .market-tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    color: var(--text);
+    letter-spacing: 0.06em;
+  }
+
+  .edge-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .edge-bar-fill {
+    width: 50px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .edge-bar-fill-inner {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+  .edge-positive .edge-bar-fill-inner { background: var(--accent); }
+  .edge-negative .edge-bar-fill-inner { background: var(--red); }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+  .empty-state-icon { font-size: 32px; margin-bottom: 12px; }
+
+  /* KELLY VIEW */
+  #view-kelly { flex-direction: column; padding: 20px 24px; }
+  .kelly-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .kelly-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(37,43,48,0.5); }
+  .kelly-row:last-child { border-bottom: none; }
+  .kelly-row-label { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .kelly-row-val { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--text); }
+
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+
+  .no-data-msg {
+    padding: 20px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    letter-spacing: 0.08em;
+  }
+
+  .highlight-row { background: rgba(0,229,160,0.04) !important; }
+
+  /* responsive */
+  @media (max-width: 900px) {
+    .hole-grid { grid-template-columns: repeat(6, 1fr); }
+    .analysis-panel { flex-direction: column; }
+    .analysis-left { flex: none; width: 100%; }
+  }
+
+  .acct-summary {
+    display: flex;
+    gap: 24px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .acct-stat { display: flex; flex-direction: column; gap: 2px; }
+  .acct-stat-label { font-family: var(--mono); font-size: 8px; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .acct-stat-val { font-family: var(--mono); font-size: 13px; font-weight: 700; }
+  .acct-stat-val.green { color: var(--accent); }
+  .acct-stat-val.red { color: var(--red); }
+  .acct-stat-val.gold { color: var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-brand">
+    <div class="header-dot"></div>
+    <div>
+      <div class="header-title">VALSPAR CHAMPIONSHIP 2026</div>
+      <div class="header-sub">HOLE PROP VALUE ANALYZER · COPPERHEAD COURSE</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="bankroll-wrap">
+      <span class="bankroll-label">BANKROLL $</span>
+      <input type="number" class="bankroll-input" id="bankroll" value="5000" placeholder="5000">
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="holes">⛳ HOLE ANALYSIS</div>
+  <div class="tab" data-tab="scanner">📊 VALUE SCANNER</div>
+  <div class="tab" data-tab="kelly">📐 KELLY CALC</div>
+</div>
+
+<div class="main">
+
+  <!-- HOLE ANALYSIS TAB -->
+  <div class="panel-view active" id="view-holes">
+    <div style="margin-bottom:4px;">
+      <div style="display:flex; gap:16px; margin-bottom:12px; align-items:center;">
+        <span style="font-family:var(--mono);font-size:9px;color:var(--text-muted);letter-spacing:0.1em;">SELECT HOLE</span>
+        <span style="display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;color:var(--blue)">▪ PAR 3</span>
+        <span style="display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;color:var(--gold)">▪ PAR 4</span>
+        <span style="display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;color:var(--accent)">▪ PAR 5</span>
+      </div>
+      <div class="hole-grid" id="hole-grid"></div>
+    </div>
+
+    <div id="analysis-container" style="display:none;">
+      <div class="analysis-panel">
+        <div class="analysis-left">
+
+          <!-- Hole Info -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">HOLE DETAILS</span>
+              <span id="hole-rounds-badge" style="font-family:var(--mono);font-size:9px;color:var(--text-muted);"></span>
+            </div>
+            <div class="hole-info-row">
+              <div class="hole-big-num" id="big-hole-num">1</div>
+              <div class="hole-details">
+                <div class="hole-detail-row">
+                  <div class="hole-stat">
+                    <span class="hole-stat-label">PAR</span>
+                    <span class="hole-stat-val" id="detail-par">—</span>
+                  </div>
+                  <div class="hole-stat">
+                    <span class="hole-stat-label">AVG YDS</span>
+                    <span class="hole-stat-val" id="detail-yds">—</span>
+                  </div>
+                  <div class="hole-stat">
+                    <span class="hole-stat-label">AVG SCORE</span>
+                    <span class="hole-stat-val" id="detail-avg">—</span>
+                  </div>
+                  <div class="hole-stat">
+                    <span class="hole-stat-label">SCORING</span>
+                    <span class="hole-stat-val" id="detail-scoring">—</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pin Selector -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">PIN POSITION (HISTORICAL MATCH)</span>
+            </div>
+            <div class="pin-select-grid" id="pin-grid"></div>
+            <div class="sample-info" id="sample-info"></div>
+          </div>
+
+          <!-- Historical Stats -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">HISTORICAL PROBABILITIES</span>
+              <span id="hist-sample-label" style="font-family:var(--mono);font-size:9px;color:var(--text-muted);"></span>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <table class="stats-table" id="hist-stats-table">
+                <thead>
+                  <tr>
+                    <th>MARKET</th>
+                    <th>HIST %</th>
+                    <th>SAMPLE</th>
+                    <th>FAIR ODDS</th>
+                  </tr>
+                </thead>
+                <tbody id="hist-stats-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="analysis-right">
+
+          <!-- Odds Input & Edge Calc -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">DK ODDS INPUT + EDGE CALCULATION</span>
+              <span style="font-family:var(--mono);font-size:9px;color:var(--text-muted);">ENTER AMERICAN ODDS (e.g. -120, +350)</span>
+            </div>
+            <div style="padding:0;">
+              <table class="odds-table" id="odds-table">
+                <thead>
+                  <tr>
+                    <th style="width:140px;">MARKET</th>
+                    <th>HIST %</th>
+                    <th>FAIR ODDS</th>
+                    <th>DK ODDS</th>
+                    <th>IMPLIED %</th>
+                    <th>EDGE</th>
+                    <th>KELLY</th>
+                    <th style="text-align:right;padding-right:14px;">BET SIZE</th>
+                  </tr>
+                </thead>
+                <tbody id="odds-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Rounds breakdown -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">ROUND-BY-ROUND BREAKDOWN (SELECTED PIN)</span>
+            </div>
+            <div style="padding:0;">
+              <table class="stats-table" id="rounds-table">
+                <thead>
+                  <tr>
+                    <th>RND</th>
+                    <th>YEAR</th>
+                    <th>WEATHER</th>
+                    <th>YDS</th>
+                    <th>AVG</th>
+                    <th>BoB%</th>
+                    <th>PAR%</th>
+                    <th>BoW%</th>
+                    <th>GIR%</th>
+                    <th>PLAYERS</th>
+                  </tr>
+                </thead>
+                <tbody id="rounds-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div id="no-hole-selected" style="text-align:center;padding:60px;color:var(--text-muted);font-family:var(--mono);font-size:11px;letter-spacing:0.1em;">
+      SELECT A HOLE ABOVE TO BEGIN ANALYSIS
+    </div>
+  </div>
+
+  <!-- VALUE SCANNER TAB -->
+  <div class="panel-view" id="view-scanner">
+    <div class="scanner-header">
+      <span class="scanner-title">VALUE SCANNER — ALL ENTERED ODDS RANKED BY EDGE</span>
+      <div class="scanner-filters">
+        <button class="filter-btn active" data-filter="all">ALL</button>
+        <button class="filter-btn" data-filter="positive">+EDGE ONLY</button>
+        <button class="filter-btn" data-filter="kelly">KELLY > 0</button>
+      </div>
+    </div>
+    <div class="acct-summary">
+      <div class="acct-stat">
+        <span class="acct-stat-label">BETS ANALYZED</span>
+        <span class="acct-stat-val" id="scan-count">0</span>
+      </div>
+      <div class="acct-stat">
+        <span class="acct-stat-label">POSITIVE EDGE</span>
+        <span class="acct-stat-val green" id="scan-positive">0</span>
+      </div>
+      <div class="acct-stat">
+        <span class="acct-stat-label">AVG EDGE</span>
+        <span class="acct-stat-val" id="scan-avg-edge">—</span>
+      </div>
+      <div class="acct-stat">
+        <span class="acct-stat-label">TOTAL KELLY</span>
+        <span class="acct-stat-val gold" id="scan-total-kelly">$0</span>
+      </div>
+    </div>
+    <div style="overflow-x:auto; flex:1;">
+      <table class="scanner-table" id="scanner-table">
+        <thead>
+          <tr>
+            <th class="sort-active" data-sort="edge">EDGE ▼</th>
+            <th>HOLE</th>
+            <th>PAR</th>
+            <th>PIN</th>
+            <th>MARKET</th>
+            <th>HIST %</th>
+            <th>FAIR ODDS</th>
+            <th>DK ODDS</th>
+            <th>IMPLIED %</th>
+            <th>EDGE</th>
+            <th>KELLY %</th>
+            <th>BET SIZE</th>
+          </tr>
+        </thead>
+        <tbody id="scanner-body"></tbody>
+      </table>
+      <div class="empty-state" id="scanner-empty">
+        <div class="empty-state-icon">📡</div>
+        NO ODDS ENTERED YET<br>
+        <span style="font-size:9px;margin-top:8px;display:block;color:var(--text-muted)">GO TO HOLE ANALYSIS AND ENTER DK ODDS TO SEE VALUE BETS HERE</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- KELLY CALCULATOR TAB -->
+  <div class="panel-view" id="view-kelly">
+    <div style="max-width:600px;">
+      <div style="margin-bottom:16px;font-family:var(--mono);font-size:10px;color:var(--text-muted);letter-spacing:0.1em;">STANDALONE KELLY CRITERION CALCULATOR</div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><span class="card-title">INPUTS</span></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:12px;">
+          <div class="kelly-row">
+            <span class="kelly-row-label">DK ODDS (American)</span>
+            <input type="number" id="k-odds" class="bankroll-input" value="+350" style="width:120px;">
+          </div>
+          <div class="kelly-row">
+            <span class="kelly-row-label">WIN PROBABILITY (%)</span>
+            <input type="number" id="k-prob" class="bankroll-input" value="30" min="0" max="100" style="width:120px;">
+          </div>
+          <div class="kelly-row">
+            <span class="kelly-row-label">BANKROLL ($)</span>
+            <input type="number" id="k-bankroll" class="bankroll-input" value="5000" style="width:120px;">
+          </div>
+          <div class="kelly-row">
+            <span class="kelly-row-label">KELLY FRACTION (0.25 = quarter Kelly)</span>
+            <input type="number" id="k-fraction" class="bankroll-input" value="0.25" min="0" max="1" step="0.05" style="width:120px;">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">OUTPUT</span></div>
+        <div class="card-body" id="kelly-output" style="display:flex;flex-direction:column;gap:0;padding:0;">
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===================== DATA =====================
+const RAW = [{"hole":1,"par":5,"yards":549.0,"avg":4.566,"eagles":3.0,"birdies":76.0,"pars":60.0,"bogeys":10.0,"dbl":3.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":79,"bow":13},{"hole":1,"par":5,"yards":543.0,"avg":4.697,"eagles":4.0,"birdies":49.0,"pars":88.0,"bogeys":11.0,"dbl":0,"round":2,"year":2025,"weather":"10-15 N","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":53,"bow":11},{"hole":1,"par":5,"yards":561.0,"avg":4.718,"eagles":1.0,"birdies":31.0,"pars":37.0,"bogeys":7.0,"dbl":2.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"back center","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":32,"bow":9},{"hole":1,"par":5,"yards":560.0,"avg":4.692,"eagles":1.0,"birdies":28.0,"pars":43.0,"bogeys":6.0,"dbl":0,"round":4,"year":2025,"weather":"5-10 S","pin":"middle right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":29,"bow":6},{"hole":2,"par":4,"yards":407.0,"avg":3.993,"eagles":0,"birdies":28.0,"pars":99.0,"bogeys":23.0,"dbl":2.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"front center","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":28,"bow":25},{"hole":2,"par":4,"yards":410.0,"avg":4.237,"eagles":0,"birdies":16.0,"pars":92.0,"bogeys":37.0,"dbl":6.0,"round":2,"year":2025,"weather":"10-15 N","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":151.0,"gir":151,"bob":16,"bow":43},{"hole":2,"par":4,"yards":425.0,"avg":4.205,"eagles":0,"birdies":9.0,"pars":48.0,"bogeys":17.0,"dbl":4.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":9,"bow":21},{"hole":2,"par":4,"yards":407.0,"avg":3.949,"eagles":0,"birdies":17.0,"pars":51.0,"bogeys":8.0,"dbl":1.0,"round":4,"year":2025,"weather":"5-10 S","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":17,"bow":9},{"hole":3,"par":4,"yards":423.0,"avg":4.322,"eagles":0,"birdies":4.0,"pars":99.0,"bogeys":45.0,"dbl":4.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"middle left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":4,"bow":49},{"hole":3,"par":4,"yards":439.0,"avg":4.171,"eagles":1.0,"birdies":6.0,"pars":114.0,"bogeys":28.0,"dbl":3.0,"round":2,"year":2025,"weather":"10-15 N","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":7,"bow":31},{"hole":3,"par":4,"yards":423.0,"avg":4.141,"eagles":0,"birdies":5.0,"pars":58.0,"bogeys":14.0,"dbl":1.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":5,"bow":15},{"hole":3,"par":4,"yards":439.0,"avg":4.051,"eagles":0,"birdies":7.0,"pars":61.0,"bogeys":9.0,"dbl":1.0,"round":4,"year":2025,"weather":"5-10 S","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":7,"bow":10},{"hole":4,"par":3,"yards":190.0,"avg":3.099,"eagles":0,"birdies":17.0,"pars":103.0,"bogeys":32.0,"dbl":0,"round":1,"year":2025,"weather":"15-20 SW","pin":"back right","bunker":24.0,"rough":50.0,"fairway":3.0,"water":0.0,"players":152.0,"gir":75,"bob":17,"bow":32},{"hole":4,"par":3,"yards":177.0,"avg":3.039,"eagles":0,"birdies":13.0,"pars":120.0,"bogeys":19.0,"dbl":0,"round":2,"year":2025,"weather":"10-15 N","pin":"back left","bunker":15.0,"rough":35.0,"fairway":3.0,"water":0.0,"players":152.0,"gir":99,"bob":13,"bow":19},{"hole":4,"par":3,"yards":178.0,"avg":3.051,"eagles":0,"birdies":7.0,"pars":60.0,"bogeys":11.0,"dbl":0,"round":3,"year":2025,"weather":"5-10 NW","pin":"front right","bunker":6.0,"rough":18.0,"fairway":3.0,"water":0.0,"players":78.0,"gir":51,"bob":7,"bow":11},{"hole":4,"par":3,"yards":175.0,"avg":2.949,"eagles":0,"birdies":13.0,"pars":57.0,"bogeys":7.0,"dbl":1.0,"round":4,"year":2025,"weather":"5-10 S","pin":"front left","bunker":12.0,"rough":9.0,"fairway":2.0,"water":0.0,"players":78.0,"gir":55,"bob":13,"bow":8},{"hole":5,"par":5,"yards":609.0,"avg":4.987,"eagles":0,"birdies":25.0,"pars":104.0,"bogeys":23.0,"dbl":0,"round":1,"year":2025,"weather":"15-20 SW","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":25,"bow":23},{"hole":5,"par":5,"yards":600.0,"avg":4.895,"eagles":1.0,"birdies":40.0,"pars":86.0,"bogeys":24.0,"dbl":1.0,"round":2,"year":2025,"weather":"10-15 N","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":41,"bow":25},{"hole":5,"par":5,"yards":601.0,"avg":4.91,"eagles":0,"birdies":17.0,"pars":52.0,"bogeys":8.0,"dbl":1.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":17,"bow":9},{"hole":5,"par":5,"yards":614.0,"avg":4.846,"eagles":0,"birdies":22.0,"pars":47.0,"bogeys":8.0,"dbl":1.0,"round":4,"year":2025,"weather":"5-10 S","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":22,"bow":9},{"hole":6,"par":4,"yards":446.0,"avg":3.987,"eagles":0,"birdies":29.0,"pars":98.0,"bogeys":23.0,"dbl":2.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":29,"bow":25},{"hole":6,"par":4,"yards":447.0,"avg":4.211,"eagles":0,"birdies":13.0,"pars":98.0,"bogeys":37.0,"dbl":4.0,"round":2,"year":2025,"weather":"10-15 N","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":13,"bow":41},{"hole":6,"par":4,"yards":460.0,"avg":4.192,"eagles":0,"birdies":6.0,"pars":53.0,"bogeys":17.0,"dbl":2.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":6,"bow":19},{"hole":6,"par":4,"yards":455.0,"avg":3.974,"eagles":0,"birdies":14.0,"pars":52.0,"bogeys":12.0,"dbl":0,"round":4,"year":2025,"weather":"5-10 S","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":14,"bow":12},{"hole":7,"par":4,"yards":421.0,"avg":4.178,"eagles":0,"birdies":13.0,"pars":105.0,"bogeys":29.0,"dbl":4.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":151.0,"gir":151,"bob":13,"bow":33},{"hole":7,"par":4,"yards":413.0,"avg":4.079,"eagles":0,"birdies":18.0,"pars":108.0,"bogeys":22.0,"dbl":4.0,"round":2,"year":2025,"weather":"10-15 N","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":18,"bow":26},{"hole":7,"par":4,"yards":414.0,"avg":4.051,"eagles":0,"birdies":11.0,"pars":53.0,"bogeys":13.0,"dbl":1.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"middle left","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":11,"bow":14},{"hole":7,"par":4,"yards":398.0,"avg":4.013,"eagles":0,"birdies":13.0,"pars":51.0,"bogeys":14.0,"dbl":0,"round":4,"year":2025,"weather":"5-10 S","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":13,"bow":14},{"hole":8,"par":3,"yards":229.0,"avg":3.178,"eagles":0,"birdies":18.0,"pars":90.0,"bogeys":43.0,"dbl":1.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"middle left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":18,"bow":44},{"hole":8,"par":3,"yards":244.0,"avg":3.204,"eagles":0,"birdies":9.0,"pars":105.0,"bogeys":36.0,"dbl":2.0,"round":2,"year":2025,"weather":"10-15 N","pin":"back center","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":9,"bow":38},{"hole":8,"par":3,"yards":197.0,"avg":3.064,"eagles":0,"birdies":11.0,"pars":52.0,"bogeys":14.0,"dbl":1.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"front center","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":11,"bow":15},{"hole":8,"par":3,"yards":225.0,"avg":3.282,"eagles":0,"birdies":5.0,"pars":48.0,"bogeys":23.0,"dbl":2.0,"round":4,"year":2025,"weather":"5-10 S","pin":"middle right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":5,"bow":25},{"hole":9,"par":4,"yards":437.0,"avg":4.276,"eagles":0,"birdies":11.0,"pars":91.0,"bogeys":47.0,"dbl":3.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"middle right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":11,"bow":50},{"hole":9,"par":4,"yards":435.0,"avg":4.296,"eagles":0,"birdies":13.0,"pars":85.0,"bogeys":50.0,"dbl":4.0,"round":2,"year":2025,"weather":"10-15 N","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":13,"bow":54},{"hole":9,"par":4,"yards":445.0,"avg":4.231,"eagles":0,"birdies":4.0,"pars":53.0,"bogeys":20.0,"dbl":1.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":4,"bow":21},{"hole":9,"par":4,"yards":433.0,"avg":4.051,"eagles":0,"birdies":7.0,"pars":60.0,"bogeys":11.0,"dbl":0,"round":4,"year":2025,"weather":"5-10 S","pin":"middle left","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":7,"bow":11},{"hole":10,"par":4,"yards":454.0,"avg":4.224,"eagles":0,"birdies":5.0,"pars":113.0,"bogeys":30.0,"dbl":3.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"back center","bunker":0,"rough":0,"fairway":0,"water":0,"players":151.0,"gir":151,"bob":5,"bow":33},{"hole":10,"par":4,"yards":433.0,"avg":3.908,"eagles":0,"birdies":35.0,"pars":98.0,"bogeys":17.0,"dbl":2.0,"round":2,"year":2025,"weather":"10-15 N","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":35,"bow":19},{"hole":10,"par":4,"yards":444.0,"avg":4.0,"eagles":0,"birdies":14.0,"pars":50.0,"bogeys":14.0,"dbl":0,"round":3,"year":2025,"weather":"5-10 NW","pin":"middle right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":14,"bow":14},{"hole":10,"par":4,"yards":437.0,"avg":4.154,"eagles":0,"birdies":8.0,"pars":51.0,"bogeys":18.0,"dbl":1.0,"round":4,"year":2025,"weather":"5-10 S","pin":"front center","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":8,"bow":19},{"hole":11,"par":5,"yards":570.0,"avg":5.007,"eagles":0,"birdies":31.0,"pars":89.0,"bogeys":32.0,"dbl":0,"round":1,"year":2025,"weather":"15-20 SW","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":31,"bow":32},{"hole":11,"par":5,"yards":562.0,"avg":4.684,"eagles":1.0,"birdies":61.0,"pars":77.0,"bogeys":11.0,"dbl":2.0,"round":2,"year":2025,"weather":"10-15 N","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":62,"bow":13},{"hole":11,"par":5,"yards":555.0,"avg":4.436,"eagles":2.0,"birdies":43.0,"pars":31.0,"bogeys":1.0,"dbl":1.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":45,"bow":2},{"hole":11,"par":5,"yards":552.0,"avg":4.769,"eagles":2.0,"birdies":25.0,"pars":42.0,"bogeys":7.0,"dbl":2.0,"round":4,"year":2025,"weather":"5-10 S","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":27,"bow":9},{"hole":12,"par":4,"yards":377.0,"avg":4.086,"eagles":0,"birdies":21.0,"pars":101.0,"bogeys":27.0,"dbl":2.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":151.0,"gir":151,"bob":21,"bow":29},{"hole":12,"par":4,"yards":369.0,"avg":4.079,"eagles":0,"birdies":19.0,"pars":103.0,"bogeys":29.0,"dbl":1.0,"round":2,"year":2025,"weather":"10-15 N","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":19,"bow":30},{"hole":12,"par":4,"yards":380.0,"avg":4.077,"eagles":0,"birdies":9.0,"pars":54.0,"bogeys":15.0,"dbl":0,"round":3,"year":2025,"weather":"5-10 NW","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":9,"bow":15},{"hole":12,"par":4,"yards":375.0,"avg":3.821,"eagles":0,"birdies":23.0,"pars":46.0,"bogeys":9.0,"dbl":0,"round":4,"year":2025,"weather":"5-10 S","pin":"back center","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":23,"bow":9},{"hole":13,"par":3,"yards":198.0,"avg":3.217,"eagles":0,"birdies":18.0,"pars":92.0,"bogeys":36.0,"dbl":3.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"middle center","bunker":5.0,"rough":36.0,"fairway":29.0,"water":7.0,"players":149.0,"gir":72,"bob":18,"bow":39},{"hole":13,"par":3,"yards":194.0,"avg":3.151,"eagles":0,"birdies":14.0,"pars":103.0,"bogeys":33.0,"dbl":2.0,"round":2,"year":2025,"weather":"10-15 N","pin":"back center","bunker":13.0,"rough":32.0,"fairway":32.0,"water":3.0,"players":152.0,"gir":72,"bob":14,"bow":35},{"hole":13,"par":3,"yards":174.0,"avg":2.987,"eagles":0,"birdies":15.0,"pars":50.0,"bogeys":12.0,"dbl":1.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"back left","bunker":6.0,"rough":19.0,"fairway":18.0,"water":0.0,"players":78.0,"gir":35,"bob":15,"bow":13},{"hole":13,"par":3,"yards":173.0,"avg":3.205,"eagles":0,"birdies":9.0,"pars":51.0,"bogeys":14.0,"dbl":2.0,"round":4,"year":2025,"weather":"5-10 S","pin":"back right","bunker":10.0,"rough":21.0,"fairway":17.0,"water":1.0,"players":76.0,"gir":27,"bob":9,"bow":16},{"hole":14,"par":5,"yards":583.0,"avg":4.849,"eagles":0,"birdies":47.0,"pars":88.0,"bogeys":12.0,"dbl":3.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"middle left","bunker":0,"rough":0,"fairway":0,"water":0,"players":150.0,"gir":150,"bob":47,"bow":15},{"hole":14,"par":5,"yards":591.0,"avg":4.888,"eagles":0,"birdies":45.0,"pars":82.0,"bogeys":22.0,"dbl":3.0,"round":2,"year":2025,"weather":"10-15 N","pin":"back center","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":45,"bow":25},{"hole":14,"par":5,"yards":573.0,"avg":4.782,"eagles":0,"birdies":28.0,"pars":39.0,"bogeys":11.0,"dbl":0,"round":3,"year":2025,"weather":"5-10 NW","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":28,"bow":11},{"hole":14,"par":5,"yards":583.0,"avg":4.551,"eagles":5.0,"birdies":31.0,"pars":36.0,"bogeys":6.0,"dbl":0,"round":4,"year":2025,"weather":"5-10 S","pin":"middle left","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":36,"bow":6},{"hole":15,"par":3,"yards":204.0,"avg":3.072,"eagles":0,"birdies":17.0,"pars":107.0,"bogeys":28.0,"dbl":0,"round":1,"year":2025,"weather":"15-20 SW","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":17,"bow":28},{"hole":15,"par":3,"yards":177.0,"avg":2.993,"eagles":0,"birdies":18.0,"pars":117.0,"bogeys":17.0,"dbl":0,"round":2,"year":2025,"weather":"10-15 N","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":18,"bow":17},{"hole":15,"par":3,"yards":213.0,"avg":2.974,"eagles":0,"birdies":15.0,"pars":50.0,"bogeys":13.0,"dbl":0,"round":3,"year":2025,"weather":"5-10 NW","pin":"back center","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":15,"bow":13},{"hole":15,"par":3,"yards":174.0,"avg":3.077,"eagles":0,"birdies":10.0,"pars":52.0,"bogeys":16.0,"dbl":0,"round":4,"year":2025,"weather":"5-10 S","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":10,"bow":16},{"hole":16,"par":4,"yards":452.0,"avg":4.395,"eagles":0,"birdies":9.0,"pars":91.0,"bogeys":41.0,"dbl":7.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":148.0,"gir":148,"bob":9,"bow":48},{"hole":16,"par":4,"yards":452.0,"avg":4.289,"eagles":0,"birdies":17.0,"pars":88.0,"bogeys":34.0,"dbl":12.0,"round":2,"year":2025,"weather":"10-15 N","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":151.0,"gir":151,"bob":17,"bow":46},{"hole":16,"par":4,"yards":450.0,"avg":4.09,"eagles":0,"birdies":11.0,"pars":52.0,"bogeys":12.0,"dbl":3.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"front center","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":11,"bow":15},{"hole":16,"par":4,"yards":456.0,"avg":4.333,"eagles":0,"birdies":7.0,"pars":44.0,"bogeys":22.0,"dbl":4.0,"round":4,"year":2025,"weather":"5-10 S","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":7,"bow":26},{"hole":17,"par":3,"yards":175.0,"avg":3.013,"eagles":0,"birdies":23.0,"pars":105.0,"bogeys":23.0,"dbl":1.0,"round":1,"year":2025,"weather":"15-20 SW","pin":"front left","bunker":20.0,"rough":28.0,"fairway":20.0,"water":0.0,"players":152.0,"gir":84,"bob":23,"bow":24},{"hole":17,"par":3,"yards":194.0,"avg":3.092,"eagles":1.0,"birdies":14.0,"pars":108.0,"bogeys":28.0,"dbl":1.0,"round":2,"year":2025,"weather":"10-15 N","pin":"back right","bunker":22.0,"rough":34.0,"fairway":8.0,"water":0.0,"players":152.0,"gir":88,"bob":15,"bow":29},{"hole":17,"par":3,"yards":204.0,"avg":3.026,"eagles":1.0,"birdies":10.0,"pars":54.0,"bogeys":12.0,"dbl":1.0,"round":3,"year":2025,"weather":"5-10 NW","pin":"middle center","bunker":19.0,"rough":11.0,"fairway":4.0,"water":0.0,"players":78.0,"gir":44,"bob":11,"bow":13},{"hole":17,"par":3,"yards":222.0,"avg":3.051,"eagles":0,"birdies":8.0,"pars":58.0,"bogeys":12.0,"dbl":0,"round":4,"year":2025,"weather":"5-10 S","pin":"back left","bunker":16.0,"rough":15.0,"fairway":1.0,"water":0.0,"players":78.0,"gir":46,"bob":8,"bow":12},{"hole":18,"par":4,"yards":420.0,"avg":4.105,"eagles":0,"birdies":20.0,"pars":98.0,"bogeys":33.0,"dbl":0,"round":1,"year":2025,"weather":"15-20 SW","pin":"middle center","bunker":0,"rough":0,"fairway":0,"water":0,"players":151.0,"gir":151,"bob":20,"bow":33},{"hole":18,"par":4,"yards":439.0,"avg":4.151,"eagles":0,"birdies":13.0,"pars":105.0,"bogeys":32.0,"dbl":2.0,"round":2,"year":2025,"weather":"10-15 N","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":13,"bow":34},{"hole":18,"par":4,"yards":429.0,"avg":4.167,"eagles":0,"birdies":5.0,"pars":55.0,"bogeys":18.0,"dbl":0,"round":3,"year":2025,"weather":"5-10 NW","pin":"middle left","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":5,"bow":18},{"hole":18,"par":4,"yards":421.0,"avg":4.128,"eagles":0,"birdies":8.0,"pars":54.0,"bogeys":14.0,"dbl":2.0,"round":4,"year":2025,"weather":"5-10 S","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":78.0,"gir":78,"bob":8,"bow":16},{"hole":1,"par":5,"yards":554.0,"avg":4.586,"eagles":1.0,"birdies":68.0,"pars":76.0,"bogeys":7.0,"dbl":0,"round":1,"year":2024,"weather":"4-8 all","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":69,"bow":7},{"hole":1,"par":5,"yards":563.0,"avg":4.435,"eagles":7.0,"birdies":74.0,"pars":61.0,"bogeys":5.0,"dbl":0,"round":3,"year":2024,"weather":"15-20 SSE","pin":"back center","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":81,"bow":5},{"hole":1,"par":5,"yards":542.0,"avg":4.532,"eagles":3.0,"birdies":35.0,"pars":35.0,"bogeys":3.0,"dbl":1.0,"round":1,"year":2024,"weather":"10-15 NW","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":38,"bow":4},{"hole":1,"par":5,"yards":551.0,"avg":4.766,"eagles":1.0,"birdies":24.0,"pars":44.0,"bogeys":8.0,"dbl":0,"round":3,"year":2024,"weather":"12-17 NE","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":25,"bow":8},{"hole":2,"par":4,"yards":408.0,"avg":4.072,"eagles":0,"birdies":27.0,"pars":93.0,"bogeys":26.0,"dbl":6.0,"round":2,"year":2024,"weather":"4-8 all","pin":"front middle","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":27,"bow":32},{"hole":2,"par":4,"yards":415.0,"avg":4.0,"eagles":0,"birdies":25.0,"pars":100.0,"bogeys":19.0,"dbl":3.0,"round":4,"year":2024,"weather":"15-20 SSE","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":25,"bow":22},{"hole":2,"par":4,"yards":421.0,"avg":4.039,"eagles":0,"birdies":14.0,"pars":46.0,"bogeys":17.0,"dbl":0,"round":2,"year":2024,"weather":"10-15 NW","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":14,"bow":17},{"hole":2,"par":4,"yards":408.0,"avg":4.299,"eagles":0,"birdies":7.0,"pars":44.0,"bogeys":23.0,"dbl":2.0,"round":4,"year":2024,"weather":"12-17 NE","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":76.0,"gir":76,"bob":7,"bow":25},{"hole":3,"par":4,"yards":419.0,"avg":4.105,"eagles":0,"birdies":18.0,"pars":101.0,"bogeys":32.0,"dbl":1.0,"round":3,"year":2024,"weather":"4-8 all","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":18,"bow":33},{"hole":3,"par":4,"yards":429.0,"avg":4.259,"eagles":0,"birdies":7.0,"pars":101.0,"bogeys":34.0,"dbl":4.0,"round":1,"year":2024,"weather":"15-20 SSE","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":146.0,"gir":146,"bob":7,"bow":38},{"hole":3,"par":4,"yards":421.0,"avg":4.169,"eagles":0,"birdies":6.0,"pars":53.0,"bogeys":17.0,"dbl":1.0,"round":3,"year":2024,"weather":"10-15 NW","pin":"middle left","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":6,"bow":18},{"hole":3,"par":4,"yards":437.0,"avg":4.117,"eagles":0,"birdies":0,"pars":68.0,"bogeys":9.0,"dbl":0,"round":1,"year":2024,"weather":"12-17 NE","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":0,"bow":9},{"hole":4,"par":3,"yards":181.0,"avg":3.033,"eagles":0,"birdies":20.0,"pars":108.0,"bogeys":23.0,"dbl":1.0,"round":4,"year":2024,"weather":"4-8 all","pin":"back left","bunker":10.0,"rough":32.0,"fairway":7.0,"water":0.0,"players":152.0,"gir":103,"bob":20,"bow":24},{"hole":4,"par":3,"yards":187.0,"avg":3.082,"eagles":0,"birdies":13.0,"pars":110.0,"bogeys":23.0,"dbl":1.0,"round":2,"year":2024,"weather":"15-20 SSE","pin":"back right","bunker":18.0,"rough":31.0,"fairway":11.0,"water":0.0,"players":147.0,"gir":87,"bob":13,"bow":24},{"hole":4,"par":3,"yards":181.0,"avg":2.987,"eagles":0,"birdies":13.0,"pars":52.0,"bogeys":12.0,"dbl":0,"round":4,"year":2024,"weather":"10-15 NW","pin":"front left","bunker":10.0,"rough":23.0,"fairway":5.0,"water":0.0,"players":77.0,"gir":39,"bob":13,"bow":12},{"hole":4,"par":3,"yards":178.0,"avg":3.052,"eagles":0,"birdies":10.0,"pars":53.0,"bogeys":14.0,"dbl":0,"round":2,"year":2024,"weather":"12-17 NE","pin":"front right","bunker":7.0,"rough":15.0,"fairway":6.0,"water":0.0,"players":77.0,"gir":49,"bob":10,"bow":14},{"hole":5,"par":5,"yards":600.0,"avg":5.02,"eagles":1.0,"birdies":30.0,"pars":91.0,"bogeys":26.0,"dbl":3.0,"round":1,"year":2024,"weather":"4-8 all","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":151.0,"gir":151,"bob":31,"bow":29},{"hole":5,"par":5,"yards":599.0,"avg":5.109,"eagles":0,"birdies":18.0,"pars":96.0,"bogeys":32.0,"dbl":1.0,"round":3,"year":2024,"weather":"15-20 SSE","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":18,"bow":33},{"hole":5,"par":5,"yards":616.0,"avg":4.792,"eagles":0,"birdies":26.0,"pars":42.0,"bogeys":8.0,"dbl":1.0,"round":1,"year":2024,"weather":"10-15 NW","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":26,"bow":9},{"hole":5,"par":5,"yards":610.0,"avg":4.87,"eagles":1.0,"birdies":23.0,"pars":39.0,"bogeys":13.0,"dbl":1.0,"round":3,"year":2024,"weather":"12-17 NE","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":24,"bow":14},{"hole":6,"par":4,"yards":448.0,"avg":4.211,"eagles":0,"birdies":14.0,"pars":96.0,"bogeys":38.0,"dbl":4.0,"round":2,"year":2024,"weather":"4-8 all","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":14,"bow":42},{"hole":6,"par":4,"yards":458.0,"avg":4.014,"eagles":0,"birdies":21.0,"pars":105.0,"bogeys":19.0,"dbl":2.0,"round":4,"year":2024,"weather":"15-20 SSE","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":21,"bow":21},{"hole":6,"par":4,"yards":455.0,"avg":4.104,"eagles":0,"birdies":11.0,"pars":48.0,"bogeys":17.0,"dbl":1.0,"round":2,"year":2024,"weather":"10-15 NW","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":11,"bow":18},{"hole":6,"par":4,"yards":446.0,"avg":4.208,"eagles":0,"birdies":5.0,"pars":53.0,"bogeys":17.0,"dbl":2.0,"round":4,"year":2024,"weather":"12-17 NE","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":5,"bow":19},{"hole":7,"par":4,"yards":414.0,"avg":3.993,"eagles":0,"birdies":33.0,"pars":90.0,"bogeys":26.0,"dbl":3.0,"round":3,"year":2024,"weather":"4-8 all","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":33,"bow":29},{"hole":7,"par":4,"yards":411.0,"avg":4.218,"eagles":0,"birdies":6.0,"pars":106.0,"bogeys":32.0,"dbl":3.0,"round":1,"year":2024,"weather":"15-20 SSE","pin":"middle left","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":6,"bow":35},{"hole":7,"par":4,"yards":398.0,"avg":4.104,"eagles":1.0,"birdies":12.0,"pars":46.0,"bogeys":15.0,"dbl":2.0,"round":3,"year":2024,"weather":"10-15 NW","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":76.0,"gir":76,"bob":13,"bow":17},{"hole":7,"par":4,"yards":420.0,"avg":4.091,"eagles":0,"birdies":11.0,"pars":51.0,"bogeys":13.0,"dbl":1.0,"round":1,"year":2024,"weather":"12-17 NE","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":76.0,"gir":76,"bob":11,"bow":14},{"hole":8,"par":3,"yards":195.0,"avg":2.961,"eagles":0,"birdies":31.0,"pars":97.0,"bogeys":23.0,"dbl":1.0,"round":4,"year":2024,"weather":"4-8 all","pin":"front center","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":31,"bow":24},{"hole":8,"par":3,"yards":206.0,"avg":3.102,"eagles":0,"birdies":20.0,"pars":94.0,"bogeys":31.0,"dbl":2.0,"round":2,"year":2024,"weather":"15-20 SSE","pin":"middle right","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":20,"bow":33},{"hole":8,"par":3,"yards":231.0,"avg":3.182,"eagles":0,"birdies":9.0,"pars":48.0,"bogeys":17.0,"dbl":3.0,"round":4,"year":2024,"weather":"10-15 NW","pin":"middle left","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":9,"bow":20},{"hole":8,"par":3,"yards":244.0,"avg":3.208,"eagles":0,"birdies":3.0,"pars":56.0,"bogeys":17.0,"dbl":1.0,"round":2,"year":2024,"weather":"12-17 NE","pin":"back center","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":3,"bow":18},{"hole":9,"par":4,"yards":416.0,"avg":4.132,"eagles":0,"birdies":18.0,"pars":103.0,"bogeys":26.0,"dbl":3.0,"round":1,"year":2024,"weather":"4-8 all","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":150.0,"gir":150,"bob":18,"bow":29},{"hole":9,"par":4,"yards":419.0,"avg":4.014,"eagles":1.0,"birdies":27.0,"pars":89.0,"bogeys":29.0,"dbl":1.0,"round":3,"year":2024,"weather":"15-20 SSE","pin":"middle right","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":28,"bow":30},{"hole":9,"par":4,"yards":410.0,"avg":4.247,"eagles":0,"birdies":4.0,"pars":51.0,"bogeys":21.0,"dbl":1.0,"round":1,"year":2024,"weather":"10-15 NW","pin":"front center","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":4,"bow":22},{"hole":9,"par":4,"yards":411.0,"avg":4.078,"eagles":0,"birdies":14.0,"pars":44.0,"bogeys":18.0,"dbl":1.0,"round":3,"year":2024,"weather":"12-17 NE","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":14,"bow":19},{"hole":10,"par":4,"yards":444.0,"avg":4.118,"eagles":0,"birdies":15.0,"pars":107.0,"bogeys":27.0,"dbl":3.0,"round":2,"year":2024,"weather":"4-8 all","pin":"middle right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":15,"bow":30},{"hole":10,"par":4,"yards":432.0,"avg":4.238,"eagles":0,"birdies":10.0,"pars":96.0,"bogeys":37.0,"dbl":4.0,"round":4,"year":2024,"weather":"15-20 SSE","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":10,"bow":41},{"hole":10,"par":4,"yards":456.0,"avg":3.935,"eagles":0,"birdies":19.0,"pars":44.0,"bogeys":14.0,"dbl":0,"round":2,"year":2024,"weather":"10-15 NW","pin":"back center","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":19,"bow":14},{"hole":10,"par":4,"yards":436.0,"avg":3.922,"eagles":0,"birdies":17.0,"pars":49.0,"bogeys":11.0,"dbl":0,"round":4,"year":2024,"weather":"12-17 NE","pin":"front center","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":17,"bow":11},{"hole":11,"par":5,"yards":558.0,"avg":4.77,"eagles":1.0,"birdies":49.0,"pars":87.0,"bogeys":14.0,"dbl":1.0,"round":3,"year":2024,"weather":"4-8 all","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":50,"bow":15},{"hole":11,"par":5,"yards":549.0,"avg":4.932,"eagles":1.0,"birdies":26.0,"pars":104.0,"bogeys":14.0,"dbl":2.0,"round":1,"year":2024,"weather":"15-20 SSE","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":27,"bow":16},{"hole":11,"par":5,"yards":565.0,"avg":4.519,"eagles":2.0,"birdies":37.0,"pars":34.0,"bogeys":4.0,"dbl":0,"round":3,"year":2024,"weather":"10-15 NW","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":39,"bow":4},{"hole":11,"par":5,"yards":565.0,"avg":4.623,"eagles":2.0,"birdies":31.0,"pars":38.0,"bogeys":6.0,"dbl":0,"round":1,"year":2024,"weather":"12-17 NE","pin":"middle right","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":33,"bow":6},{"hole":12,"par":4,"yards":371.0,"avg":3.875,"eagles":0,"birdies":37.0,"pars":98.0,"bogeys":16.0,"dbl":1.0,"round":4,"year":2024,"weather":"4-8 all","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":37,"bow":17},{"hole":12,"par":4,"yards":379.0,"avg":3.946,"eagles":0,"birdies":29.0,"pars":98.0,"bogeys":19.0,"dbl":1.0,"round":2,"year":2024,"weather":"15-20 SSE","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":29,"bow":20},{"hole":12,"par":4,"yards":362.0,"avg":4.013,"eagles":0,"birdies":11.0,"pars":56.0,"bogeys":9.0,"dbl":0,"round":4,"year":2024,"weather":"10-15 NW","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":76.0,"gir":76,"bob":11,"bow":9},{"hole":12,"par":4,"yards":371.0,"avg":3.922,"eagles":0,"birdies":14.0,"pars":56.0,"bogeys":6.0,"dbl":1.0,"round":2,"year":2024,"weather":"12-17 NE","pin":"back center","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":14,"bow":7},{"hole":13,"par":3,"yards":194.0,"avg":3.125,"eagles":0,"birdies":18.0,"pars":100.0,"bogeys":31.0,"dbl":3.0,"round":1,"year":2024,"weather":"4-8 all","pin":"middle center","bunker":12.0,"rough":46.0,"fairway":31.0,"water":3.0,"players":152.0,"gir":60,"bob":18,"bow":34},{"hole":13,"par":3,"yards":174.0,"avg":3.218,"eagles":0,"birdies":21.0,"pars":89.0,"bogeys":22.0,"dbl":14.0,"round":3,"year":2024,"weather":"15-20 SSE","pin":"back left","bunker":8.0,"rough":33.0,"fairway":16.0,"water":8.0,"players":146.0,"gir":81,"bob":21,"bow":36},{"hole":13,"par":3,"yards":204.0,"avg":3.156,"eagles":0,"birdies":6.0,"pars":53.0,"bogeys":18.0,"dbl":0,"round":1,"year":2024,"weather":"10-15 NW","pin":"back center","bunker":3.0,"rough":22.0,"fairway":11.0,"water":0.0,"players":77.0,"gir":41,"bob":6,"bow":18},{"hole":13,"par":3,"yards":174.0,"avg":3.26,"eagles":0,"birdies":10.0,"pars":44.0,"bogeys":17.0,"dbl":5.0,"round":3,"year":2024,"weather":"12-17 NE","pin":"back right","bunker":13.0,"rough":8.0,"fairway":15.0,"water":7.0,"players":76.0,"gir":33,"bob":10,"bow":22},{"hole":14,"par":5,"yards":579.0,"avg":4.625,"eagles":3.0,"birdies":61.0,"pars":80.0,"bogeys":6.0,"dbl":2.0,"round":2,"year":2024,"weather":"4-8 all","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":64,"bow":8},{"hole":14,"par":5,"yards":596.0,"avg":4.68,"eagles":3.0,"birdies":60.0,"pars":69.0,"bogeys":11.0,"dbl":4.0,"round":4,"year":2024,"weather":"15-20 SSE","pin":"back center","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":63,"bow":15},{"hole":14,"par":5,"yards":581.0,"avg":5.065,"eagles":1.0,"birdies":11.0,"pars":48.0,"bogeys":16.0,"dbl":1.0,"round":2,"year":2024,"weather":"10-15 NW","pin":"middle right","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":12,"bow":17},{"hole":14,"par":5,"yards":585.0,"avg":4.506,"eagles":5.0,"birdies":29.0,"pars":41.0,"bogeys":2.0,"dbl":0,"round":4,"year":2024,"weather":"12-17 NE","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":34,"bow":2},{"hole":15,"par":3,"yards":216.0,"avg":3.118,"eagles":0,"birdies":15.0,"pars":105.0,"bogeys":31.0,"dbl":1.0,"round":3,"year":2024,"weather":"4-8 all","pin":"back left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":15,"bow":32},{"hole":15,"par":3,"yards":201.0,"avg":3.122,"eagles":0,"birdies":13.0,"pars":103.0,"bogeys":31.0,"dbl":0,"round":1,"year":2024,"weather":"15-20 SSE","pin":"middle left","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":13,"bow":31},{"hole":15,"par":3,"yards":186.0,"avg":3.013,"eagles":0,"birdies":13.0,"pars":51.0,"bogeys":12.0,"dbl":1.0,"round":3,"year":2024,"weather":"10-15 NW","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":13,"bow":13},{"hole":15,"par":3,"yards":176.0,"avg":3.026,"eagles":0,"birdies":10.0,"pars":55.0,"bogeys":12.0,"dbl":0,"round":1,"year":2024,"weather":"12-17 NE","pin":"front right","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":10,"bow":12},{"hole":16,"par":4,"yards":462.0,"avg":4.414,"eagles":0,"birdies":11.0,"pars":82.0,"bogeys":48.0,"dbl":9.0,"round":4,"year":2024,"weather":"4-8 all","pin":"back right","bunker":0.0,"rough":73.0,"fairway":62.0,"water":15.0,"players":150.0,"gir":0,"bob":11,"bow":57},{"hole":16,"par":4,"yards":439.0,"avg":4.252,"eagles":0,"birdies":14.0,"pars":92.0,"bogeys":33.0,"dbl":7.0,"round":2,"year":2024,"weather":"15-20 SSE","pin":"front center","bunker":0.0,"rough":69.0,"fairway":69.0,"water":8.0,"players":146.0,"gir":0,"bob":14,"bow":40},{"hole":16,"par":4,"yards":446.0,"avg":4.13,"eagles":0,"birdies":8.0,"pars":54.0,"bogeys":12.0,"dbl":3.0,"round":4,"year":2024,"weather":"10-15 NW","pin":"back left","bunker":0.0,"rough":34.0,"fairway":39.0,"water":4.0,"players":77.0,"gir":0,"bob":8,"bow":15},{"hole":16,"par":4,"yards":454.0,"avg":4.299,"eagles":0,"birdies":6.0,"pars":46.0,"bogeys":22.0,"dbl":2.0,"round":2,"year":2024,"weather":"12-17 NE","pin":"front right","bunker":0.0,"rough":37.0,"fairway":36.0,"water":3.0,"players":76.0,"gir":0,"bob":6,"bow":24},{"hole":17,"par":3,"yards":193.0,"avg":2.941,"eagles":0,"birdies":27.0,"pars":108.0,"bogeys":16.0,"dbl":1.0,"round":1,"year":2024,"weather":"4-8 all","pin":"back right","bunker":8.0,"rough":21.0,"fairway":11.0,"water":0.0,"players":152.0,"gir":112,"bob":27,"bow":17},{"hole":17,"par":3,"yards":225.0,"avg":3.177,"eagles":0,"birdies":11.0,"pars":104.0,"bogeys":29.0,"dbl":2.0,"round":3,"year":2024,"weather":"15-20 SSE","pin":"back left","bunker":22.0,"rough":28.0,"fairway":5.0,"water":0.0,"players":146.0,"gir":91,"bob":11,"bow":31},{"hole":17,"par":3,"yards":177.0,"avg":3.143,"eagles":0,"birdies":6.0,"pars":56.0,"bogeys":13.0,"dbl":2.0,"round":1,"year":2024,"weather":"10-15 NW","pin":"middle center","bunker":11.0,"rough":19.0,"fairway":2.0,"water":0.0,"players":77.0,"gir":45,"bob":6,"bow":15},{"hole":17,"par":3,"yards":198.0,"avg":3.117,"eagles":0,"birdies":8.0,"pars":53.0,"bogeys":15.0,"dbl":1.0,"round":3,"year":2024,"weather":"12-17 NE","pin":"front left","bunker":19.0,"rough":15.0,"fairway":10.0,"water":0.0,"players":77.0,"gir":33,"bob":8,"bow":16},{"hole":18,"par":4,"yards":428.0,"avg":3.974,"eagles":0,"birdies":27.0,"pars":103.0,"bogeys":21.0,"dbl":1.0,"round":2,"year":2024,"weather":"4-8 all","pin":"front left","bunker":0,"rough":0,"fairway":0,"water":0,"players":152.0,"gir":152,"bob":27,"bow":22},{"hole":18,"par":4,"yards":437.0,"avg":4.068,"eagles":0,"birdies":22.0,"pars":96.0,"bogeys":26.0,"dbl":3.0,"round":4,"year":2024,"weather":"15-20 SSE","pin":"back right","bunker":0,"rough":0,"fairway":0,"water":0,"players":147.0,"gir":147,"bob":22,"bow":29},{"hole":18,"par":4,"yards":417.0,"avg":4.13,"eagles":1.0,"birdies":9.0,"pars":46.0,"bogeys":21.0,"dbl":0,"round":2,"year":2024,"weather":"10-15 NW","pin":"middle center","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":10,"bow":21},{"hole":18,"par":4,"yards":438.0,"avg":3.987,"eagles":0,"birdies":17.0,"pars":44.0,"bogeys":16.0,"dbl":0,"round":4,"year":2024,"weather":"12-17 NE","pin":"middle right","bunker":0,"rough":0,"fairway":0,"water":0,"players":77.0,"gir":77,"bob":17,"bow":16}];
+
+const HOLES_META = {"1":{"par":5,"avg_yards":553,"avg_score":4.624},"2":{"par":4,"avg_yards":413,"avg_score":4.099},"3":{"par":4,"avg_yards":429,"avg_score":4.167},"4":{"par":3,"avg_yards":181,"avg_score":3.037},"5":{"par":5,"avg_yards":606,"avg_score":4.929},"6":{"par":4,"avg_yards":452,"avg_score":4.113},"7":{"par":4,"avg_yards":411,"avg_score":4.091},"8":{"par":3,"avg_yards":221,"avg_score":3.148},"9":{"par":4,"avg_yards":426,"avg_score":4.166},"10":{"par":4,"avg_yards":442,"avg_score":4.062},"11":{"par":5,"avg_yards":560,"avg_score":4.718},"12":{"par":4,"avg_yards":373,"avg_score":3.977},"13":{"par":3,"avg_yards":186,"avg_score":3.165},"14":{"par":5,"avg_yards":584,"avg_score":4.743},"15":{"par":3,"avg_yards":193,"avg_score":3.049},"16":{"par":4,"avg_yards":451,"avg_score":4.275},"17":{"par":3,"avg_yards":198,"avg_score":3.07},"18":{"par":4,"avg_yards":429,"avg_score":4.089}};
+
+// ===================== STATE =====================
+let selectedHole = null;
+let selectedPin = null;
+let oddsState = {}; // {hole: {pin: {market: oddsValue}}}
+let scanFilter = 'all';
+
+// ===================== UTILS =====================
+function pct(p) { return (p * 100).toFixed(1) + '%'; }
+function americanOdds(p) {
+  if (p <= 0 || p >= 1) return '—';
+  if (p >= 0.5) return Math.round(-100 * p / (1 - p));
+  return '+' + Math.round(100 * (1 - p) / p);
+}
+function impliedProb(odds) {
+  const o = parseFloat(odds);
+  if (isNaN(o)) return null;
+  if (o > 0) return 100 / (o + 100);
+  if (o < 0) return (-o) / (-o + 100);
+  return null;
+}
+function decimalOdds(americanStr) {
+  const o = parseFloat(americanStr);
+  if (isNaN(o)) return null;
+  if (o > 0) return o / 100 + 1;
+  if (o < 0) return 100 / (-o) + 1;
+  return null;
+}
+function kellyFraction(p, dec) {
+  if (!dec || dec <= 1) return 0;
+  const b = dec - 1;
+  const f = (b * p - (1 - p)) / b;
+  return Math.max(0, f);
+}
+function formatOdds(o) {
+  if (typeof o === 'number') return o > 0 ? '+' + o : '' + o;
+  return '' + o;
+}
+
+// ===================== DATA LOGIC =====================
+function getHoleRecords(hole) {
+  return RAW.filter(r => r.hole === hole);
+}
+function getPinOptions(hole) {
+  const recs = getHoleRecords(hole);
+  return [...new Set(recs.map(r => r.pin).filter(Boolean))].sort();
+}
+function getMatchingRecords(hole, pin) {
+  return RAW.filter(r => r.hole === hole && r.pin === pin);
+}
+function getAllRecordsForHole(hole) {
+  return RAW.filter(r => r.hole === hole);
+}
+function computeStats(records) {
+  if (!records.length) return null;
+  const tot = records.reduce((a, r) => a + r.players, 0);
+  const totBob = records.reduce((a, r) => a + r.bob, 0);
+  const totPars = records.reduce((a, r) => a + r.pars, 0);
+  const totBow = records.reduce((a, r) => a + r.bow, 0);
+  const totGir = records.reduce((a, r) => a + r.gir, 0);
+  const totBunker = records.reduce((a, r) => a + r.bunker, 0);
+  const totRough = records.reduce((a, r) => a + r.rough, 0);
+  const totFairway = records.reduce((a, r) => a + r.fairway, 0);
+  const totWater = records.reduce((a, r) => a + r.water, 0);
+  const hasApproach = totBunker + totRough + totFairway + totWater > 0;
+  const girValid = totGir > 0 && totGir !== tot;
+
+  return {
+    players: tot, rounds: records.length,
+    bob: totBob / tot,
+    par: totPars / tot,
+    bow: totBow / tot,
+    gir: girValid ? totGir / tot : null,
+    noGir: girValid ? (tot - totGir) / tot : null,
+    bunker: hasApproach ? totBunker / tot : null,
+    rough: hasApproach ? totRough / tot : null,
+    fairway: hasApproach ? totFairway / tot : null,
+    water: hasApproach && totWater > 0 ? totWater / tot : null,
+  };
+}
+
+const MARKETS = [
+  { key: 'bob', label: 'BoB (Birdie or Better)' },
+  { key: 'par', label: 'Par (Exactly Par)' },
+  { key: 'bow', label: 'BoW (Bogey or Worse)' },
+  { key: 'gir', label: 'GIR (Green in Reg)' },
+  { key: 'noGir', label: 'No GIR' },
+  { key: 'bunker', label: 'Bunker' },
+  { key: 'rough', label: 'Rough' },
+  { key: 'fairway', label: 'Fairway' },
+  { key: 'water', label: 'Water' },
+];
+
+// ===================== BUILD HOLE GRID =====================
+function buildHoleGrid() {
+  const grid = document.getElementById('hole-grid');
+  grid.innerHTML = '';
+  for (let h = 1; h <= 18; h++) {
+    const meta = HOLES_META[h];
+    const par = meta.par;
+    const scoring = (meta.avg_score - par).toFixed(3);
+    const scoringClass = parseFloat(scoring) < 0 ? 'under' : parseFloat(scoring) > 0 ? 'over' : 'even';
+    const parClass = par === 3 ? 'par3' : par === 4 ? 'par4' : 'par5';
+    const scoringDisplay = parseFloat(scoring) < 0 ? scoring : '+' + scoring;
+    const card = document.createElement('div');
+    card.className = `hole-card ${parClass}`;
+    card.dataset.hole = h;
+    card.innerHTML = `
+      <div class="hole-num">${h}</div>
+      <div class="hole-par-yds">P${par} · ${meta.avg_yards}y</div>
+      <div class="hole-avg ${scoringClass}">${scoringDisplay}</div>
+      <div class="hole-bets-badge" id="badge-${h}">●</div>
+    `;
+    card.addEventListener('click', () => selectHole(h));
+    grid.appendChild(card);
+  }
+}
+
+// ===================== SELECT HOLE =====================
+function selectHole(h) {
+  selectedHole = h;
+  selectedPin = null;
+  document.querySelectorAll('.hole-card').forEach(c => c.classList.remove('selected'));
+  document.querySelector(`.hole-card[data-hole="${h}"]`)?.classList.add('selected');
+  document.getElementById('analysis-container').style.display = 'block';
+  document.getElementById('no-hole-selected').style.display = 'none';
+
+  const meta = HOLES_META[h];
+  document.getElementById('big-hole-num').textContent = h;
+  document.getElementById('detail-par').textContent = meta.par;
+  document.getElementById('detail-yds').textContent = meta.avg_yards + ' yds';
+  document.getElementById('detail-avg').textContent = meta.avg_score.toFixed(3);
+  const scr = (meta.avg_score - meta.par);
+  const scrStr = scr < 0 ? scr.toFixed(3) : '+' + scr.toFixed(3);
+  const el = document.getElementById('detail-scoring');
+  el.textContent = scrStr;
+  el.style.color = scr < 0 ? 'var(--accent)' : scr > 0 ? 'var(--red)' : 'var(--gold)';
+
+  const recs = getHoleRecords(h);
+  document.getElementById('hole-rounds-badge').textContent = recs.length + ' rounds of data';
+
+  buildPinGrid(h);
+  clearOddsTable();
+  clearHistStats();
+  clearRoundsTable();
+}
+
+function buildPinGrid(h) {
+  const grid = document.getElementById('pin-grid');
+  const pins = getPinOptions(h);
+  grid.innerHTML = '';
+  pins.forEach(pin => {
+    const btn = document.createElement('button');
+    btn.className = 'pin-btn';
+    btn.textContent = pin.toUpperCase();
+    btn.dataset.pin = pin;
+    btn.addEventListener('click', () => selectPin(pin));
+    grid.appendChild(btn);
+  });
+  document.getElementById('sample-info').textContent = '';
+}
+
+function selectPin(pin) {
+  selectedPin = pin;
+  document.querySelectorAll('.pin-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.pin-btn[data-pin="${pin}"]`)?.classList.add('active');
+  const recs = getMatchingRecords(selectedHole, pin);
+  const allRecs = getAllRecordsForHole(selectedHole);
+  const matchStats = computeStats(recs);
+  const allStats = computeStats(allRecs);
+  const sampleEl = document.getElementById('sample-info');
+  sampleEl.innerHTML = `<span style="color:var(--accent);">${recs.length} rounds matched</span> with this pin · ${allRecs.length} total rounds available`;
+  buildHistStats(matchStats, allStats, recs.length);
+  buildOddsTable(matchStats);
+  buildRoundsTable(recs);
+}
+
+function buildHistStats(stats, allStats, n) {
+  const body = document.getElementById('hist-stats-body');
+  if (!stats) { body.innerHTML = '<tr><td colspan="4" class="no-data-msg">NO DATA FOR SELECTION</td></tr>'; return; }
+  const rows = MARKETS.filter(m => stats[m.key] !== null && stats[m.key] !== undefined);
+  body.innerHTML = rows.map(m => {
+    const p = stats[m.key];
+    const odds = americanOdds(p);
+    return `<tr>
+      <td>${m.label}</td>
+      <td class="hist-pct">${pct(p)}</td>
+      <td>${n}</td>
+      <td class="hist-odds">${formatOdds(odds)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('hist-sample-label').textContent = `n = ${stats.players} player-holes`;
+}
+
+function buildOddsTable(stats) {
+  const body = document.getElementById('odds-table-body');
+  if (!stats) { body.innerHTML = ''; return; }
+  const bankroll = parseFloat(document.getElementById('bankroll').value) || 5000;
+  const rows = MARKETS.filter(m => stats[m.key] !== null && stats[m.key] !== undefined);
+  const key = `${selectedHole}_${selectedPin}`;
+  if (!oddsState[key]) oddsState[key] = {};
+
+  body.innerHTML = rows.map(m => {
+    const p = stats[m.key];
+    const fairOdds = americanOdds(p);
+    const savedOdds = oddsState[key][m.key] || '';
+    return `<tr id="odds-row-${m.key}">
+      <td><span class="market-label">${m.label.split(' ')[0]}</span></td>
+      <td style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--text)">${pct(p)}</td>
+      <td style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--text-dim)">${formatOdds(fairOdds)}</td>
+      <td><input type="number" class="odds-input ${savedOdds ? 'has-value' : ''}" 
+           data-market="${m.key}" value="${savedOdds}" placeholder="—"
+           oninput="handleOddsInput(this, ${p})" /></td>
+      <td class="edge-cell neutral" id="impl-${m.key}">—</td>
+      <td class="edge-cell neutral" id="edge-${m.key}">—</td>
+      <td class="kelly-cell" id="kelly-${m.key}">—</td>
+      <td class="bet-size-cell" id="bet-${m.key}">—</td>
+    </tr>`;
+  }).join('');
+
+  // Re-compute for saved odds
+  rows.forEach(m => {
+    const el = document.querySelector(`input[data-market="${m.key}"]`);
+    if (el && el.value) handleOddsInput(el, stats[m.key]);
+  });
+}
+
+function handleOddsInput(input, histProb) {
+  const mkt = input.dataset.market;
+  const val = input.value.trim();
+  const key = `${selectedHole}_${selectedPin}`;
+  if (!oddsState[key]) oddsState[key] = {};
+  oddsState[key][mkt] = val;
+
+  const implEl = document.getElementById(`impl-${mkt}`);
+  const edgeEl = document.getElementById(`edge-${mkt}`);
+  const kellyEl = document.getElementById(`kelly-${mkt}`);
+  const betEl = document.getElementById(`bet-${mkt}`);
+  const bankroll = parseFloat(document.getElementById('bankroll').value) || 5000;
+
+  if (!val) {
+    [implEl, edgeEl, kellyEl, betEl].forEach(el => { if(el) { el.textContent = '—'; el.className = el.className.replace(/positive|negative|active/g, '').trim() + ' neutral'; }});
+    updateBadge(selectedHole);
+    return;
+  }
+  const ip = impliedProb(val);
+  if (!ip) { [implEl, edgeEl, kellyEl, betEl].forEach(el => { if(el) el.textContent = 'ERR'; }); return; }
+  const edge = histProb - ip;
+  const dec = decimalOdds(val);
+  const kelly = kellyFraction(histProb, dec);
+  const kellyHalf = kelly * 0.25; // quarter Kelly by default
+  const betSize = kellyHalf * bankroll;
+
+  if (implEl) implEl.textContent = pct(ip);
+  if (edgeEl) {
+    edgeEl.textContent = (edge >= 0 ? '+' : '') + pct(edge);
+    edgeEl.className = `edge-cell ${edge > 0 ? 'positive' : edge < 0 ? 'negative' : 'neutral'}`;
+  }
+  if (kellyEl) {
+    kellyEl.textContent = edge > 0 ? pct(kellyHalf) : '—';
+    kellyEl.className = `kelly-cell ${edge > 0 ? 'active' : ''}`;
+  }
+  if (betEl) {
+    betEl.textContent = edge > 0 && betSize > 0.5 ? '$' + betSize.toFixed(0) : '—';
+    betEl.className = `bet-size-cell ${edge > 0 ? 'active' : ''}`;
+  }
+  input.classList.add('has-value');
+  updateBadge(selectedHole);
+}
+
+function clearOddsTable() { document.getElementById('odds-table-body').innerHTML = ''; }
+function clearHistStats() { document.getElementById('hist-stats-body').innerHTML = ''; document.getElementById('hist-sample-label').textContent = ''; }
+function clearRoundsTable() { document.getElementById('rounds-body').innerHTML = ''; }
+
+function buildRoundsTable(recs) {
+  const body = document.getElementById('rounds-body');
+  body.innerHTML = recs.sort((a,b) => b.year - a.year || a.round - b.round).map(r => {
+    const bp = r.players > 0 ? r.bob / r.players : 0;
+    const pp = r.players > 0 ? r.pars / r.players : 0;
+    const bwp = r.players > 0 ? r.bow / r.players : 0;
+    const girp = r.gir > 0 ? r.gir / r.players : null;
+    return `<tr>
+      <td>${r.round}</td>
+      <td>${r.year}</td>
+      <td style="font-size:10px;color:var(--text-dim)">${r.weather || '—'}</td>
+      <td>${r.yards || '—'}</td>
+      <td>${r.avg?.toFixed(3) || '—'}</td>
+      <td class="hist-pct">${pct(bp)}</td>
+      <td>${pct(pp)}</td>
+      <td style="color:var(--red)">${pct(bwp)}</td>
+      <td>${girp !== null ? pct(girp) : '—'}</td>
+      <td style="color:var(--text-muted)">${r.players}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ===================== BADGE =====================
+function updateBadge(hole) {
+  const badge = document.getElementById(`badge-${hole}`);
+  if (!badge) return;
+  // count any odds entered for this hole
+  let count = 0;
+  for (const [key, mktObj] of Object.entries(oddsState)) {
+    if (key.startsWith(hole + '_')) {
+      count += Object.values(mktObj).filter(v => v && v !== '').length;
+    }
+  }
+  badge.style.display = count > 0 ? 'block' : 'none';
+}
+
+// ===================== SCANNER =====================
+function buildScanner() {
+  const bankroll = parseFloat(document.getElementById('bankroll').value) || 5000;
+  const rows = [];
+
+  for (const [key, mktObj] of Object.entries(oddsState)) {
+    const [holeStr, ...pinParts] = key.split('_');
+    const hole = parseInt(holeStr);
+    const pin = pinParts.join('_');
+    if (!pin) continue;
+    const recs = getMatchingRecords(hole, pin);
+    if (!recs.length) continue;
+    const stats = computeStats(recs);
+    if (!stats) continue;
+
+    for (const [mkt, oddsVal] of Object.entries(mktObj)) {
+      if (!oddsVal) continue;
+      const mktMeta = MARKETS.find(m => m.key === mkt);
+      if (!mktMeta) continue;
+      const histP = stats[mkt];
+      if (histP == null) continue;
+      const ip = impliedProb(oddsVal);
+      if (!ip) continue;
+      const edge = histP - ip;
+      const dec = decimalOdds(oddsVal);
+      const kelly = kellyFraction(histP, dec);
+      const kellyHalf = kelly * 0.25;
+      const betSize = kellyHalf * bankroll;
+      rows.push({ hole, par: HOLES_META[hole].par, pin, mkt: mktMeta.label, histP, ip, oddsVal, fairOdds: americanOdds(histP), edge, kelly: kellyHalf, betSize });
+    }
+  }
+
+  rows.sort((a, b) => b.edge - a.edge);
+
+  const filtered = rows.filter(r => {
+    if (scanFilter === 'positive') return r.edge > 0;
+    if (scanFilter === 'kelly') return r.kelly > 0;
+    return true;
+  });
+
+  // Summary stats
+  document.getElementById('scan-count').textContent = rows.length;
+  const posCount = rows.filter(r => r.edge > 0).length;
+  document.getElementById('scan-positive').textContent = posCount;
+  const avgEdge = rows.length ? rows.reduce((a, r) => a + r.edge, 0) / rows.length : 0;
+  const avgEdgeEl = document.getElementById('scan-avg-edge');
+  avgEdgeEl.textContent = rows.length ? (avgEdge >= 0 ? '+' : '') + pct(avgEdge) : '—';
+  avgEdgeEl.style.color = avgEdge > 0 ? 'var(--accent)' : avgEdge < 0 ? 'var(--red)' : 'var(--text-dim)';
+  const totalKelly = rows.filter(r => r.kelly > 0).reduce((a, r) => a + r.betSize, 0);
+  document.getElementById('scan-total-kelly').textContent = '$' + totalKelly.toFixed(0);
+
+  const body = document.getElementById('scanner-body');
+  const empty = document.getElementById('scanner-empty');
+  if (!filtered.length) {
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  const parClass = p => p === 3 ? 'par3' : p === 4 ? 'par4' : 'par5';
+  body.innerHTML = filtered.map((r, i) => {
+    const edgeStr = (r.edge >= 0 ? '+' : '') + pct(r.edge);
+    const barW = Math.min(Math.abs(r.edge) * 400, 50);
+    return `<tr class="${i === 0 && r.edge > 0 ? 'highlight-row' : ''}">
+      <td>${i + 1}</td>
+      <td><span class="hole-badge ${parClass(r.par)}">${r.hole}</span></td>
+      <td style="font-family:var(--mono);font-size:10px;color:${r.par===3?'var(--blue)':r.par===4?'var(--gold)':'var(--accent)'}">PAR ${r.par}</td>
+      <td style="font-family:var(--mono);font-size:9px;color:var(--text-dim)">${r.pin.toUpperCase()}</td>
+      <td><span class="market-tag">${r.mkt.split(' ')[0]}</span></td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--text)">${pct(r.histP)}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim)">${formatOdds(r.fairOdds)}</td>
+      <td style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--gold)">${r.oddsVal > 0 ? '+' + r.oddsVal : r.oddsVal}</td>
+      <td style="font-family:var(--mono);font-size:11px;">${pct(r.ip)}</td>
+      <td>
+        <div class="edge-bar ${r.edge >= 0 ? 'edge-positive' : 'edge-negative'}">
+          <span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${r.edge>0?'var(--accent)':'var(--red)'}">${edgeStr}</span>
+          <div class="edge-bar-fill"><div class="edge-bar-fill-inner" style="width:${barW}px"></div></div>
+        </div>
+      </td>
+      <td style="font-family:var(--mono);font-size:10px;color:${r.kelly>0?'var(--accent)':'var(--text-muted)'}">${r.kelly > 0 ? pct(r.kelly) : '—'}</td>
+      <td style="font-family:var(--mono);font-size:11px;font-weight:700;color:${r.betSize>0?'var(--gold)':'var(--text-muted)'};text-align:right">${r.betSize > 0.5 ? '$' + r.betSize.toFixed(0) : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ===================== KELLY CALC =====================
+function updateKellyCalc() {
+  const odds = parseFloat(document.getElementById('k-odds').value);
+  const prob = parseFloat(document.getElementById('k-prob').value) / 100;
+  const bankroll = parseFloat(document.getElementById('k-bankroll').value) || 5000;
+  const fraction = parseFloat(document.getElementById('k-fraction').value) || 0.25;
+
+  const dec = !isNaN(odds) ? (odds > 0 ? odds / 100 + 1 : 100 / (-odds) + 1) : null;
+  const ip = !isNaN(odds) ? impliedProb(odds) : null;
+  const fullKelly = dec && prob ? kellyFraction(prob, dec) : 0;
+  const adjKelly = fullKelly * fraction;
+  const betSize = adjKelly * bankroll;
+  const edge = ip ? prob - ip : null;
+
+  const items = [
+    { label: 'Decimal Odds', val: dec ? dec.toFixed(4) : '—', color: 'var(--text)' },
+    { label: 'Implied Probability', val: ip ? pct(ip) : '—', color: 'var(--text)' },
+    { label: 'Your Win Probability', val: !isNaN(prob) ? pct(prob) : '—', color: 'var(--text)' },
+    { label: 'Edge', val: edge !== null ? (edge >= 0 ? '+' : '') + pct(edge) : '—', color: edge > 0 ? 'var(--accent)' : edge < 0 ? 'var(--red)' : 'var(--text)' },
+    { label: 'Full Kelly %', val: pct(fullKelly), color: 'var(--text)' },
+    { label: `Adjusted Kelly (${(fraction*100).toFixed(0)}%)`, val: pct(adjKelly), color: 'var(--accent)' },
+    { label: 'Recommended Bet', val: betSize > 0 ? '$' + betSize.toFixed(2) : '$0.00', color: betSize > 0 ? 'var(--gold)' : 'var(--text-muted)' },
+    { label: 'Expected Value (per $100)', val: ip && dec ? '$' + ((prob * (dec - 1) * 100) - ((1 - prob) * 100)).toFixed(2) : '—', color: 'var(--text)' },
+  ];
+
+  document.getElementById('kelly-output').innerHTML = items.map(i =>
+    `<div class="kelly-row">
+      <span class="kelly-row-label">${i.label}</span>
+      <span class="kelly-row-val" style="color:${i.color}">${i.val}</span>
+    </div>`
+  ).join('');
+}
+
+// ===================== TABS =====================
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel-view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`view-${tab.dataset.tab}`).classList.add('active');
+    if (tab.dataset.tab === 'scanner') buildScanner();
+    if (tab.dataset.tab === 'kelly') updateKellyCalc();
+  });
+});
+
+// Scanner filters
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    scanFilter = btn.dataset.filter;
+    buildScanner();
+  });
+});
+
+// Bankroll change
+document.getElementById('bankroll').addEventListener('input', () => {
+  if (selectedHole && selectedPin) {
+    const recs = getMatchingRecords(selectedHole, selectedPin);
+    const stats = computeStats(recs);
+    if (stats) buildOddsTable(stats);
+  }
+});
+
+// Kelly calc inputs
+['k-odds','k-prob','k-bankroll','k-fraction'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateKellyCalc);
+});
+
+// ===================== INIT =====================
+buildHoleGrid();
+updateKellyCalc();
+</script>
+</body>
+</html>
